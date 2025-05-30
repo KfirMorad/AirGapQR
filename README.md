@@ -36,7 +36,7 @@
 
 ## Use Case
 
-1. Air-gapped intelligence and military systems  
+1. Air-gapped intelligence systems  
 2. Secure environments without trusted I/O hardware  
 3. Covert or emergency data transfer scenarios  
 4. Demonstrations or educational tools for physical-layer secure communication  
