@@ -11,7 +11,6 @@
 3. QR code generation for each chunk  
 4. Camera-based scanning and file reconstruction  
 5. SHA-256 integrity verification  
-6. Supports both GUI (optional) and CLI mode  
 
 ---
 
@@ -39,4 +38,5 @@
 1. Air-gapped intelligence systems  
 2. Secure environments without trusted I/O hardware  
 3. Covert or emergency data transfer scenarios  
-4. Demonstrations or educational tools for physical-layer secure communication  
+4. Demonstrations or educational tools for physical-layer secure communication
+5. Mostly For Text Files, All Files Work But Will Split Into Dozens Of QR Codes
