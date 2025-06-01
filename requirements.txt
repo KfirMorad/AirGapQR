@@ -1,0 +1,6 @@
+cryptography
+pyzbar
+Pillow
+opencv-python
+qrcode
+
