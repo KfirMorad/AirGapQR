@@ -5,6 +5,10 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 # main.py
 import os
+import sys
+# Ensure the script runs from its own directory
+os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
+
 
 MAX_SIZE = 40 * 1024
 app_state = {"file": None, "text": None}
