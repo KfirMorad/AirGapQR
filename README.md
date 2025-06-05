@@ -1,6 +1,6 @@
 # AirGapQR — Secure Offline File Transfer via QR
 
-**AirGapQR** is a file transfer system designed for high-security environments. It encrypts and slices any file into QR codes, allowing secure transmission between air-gapped systems — no network, no USB, no risk.
+**AirGapQR** is a file transfer system designed for high-security environments. It encrypts and slices any file into QR codes, allowing secure transmission **between** air-gapped systems—no network, no USB, no risk.
 
 ---
 
