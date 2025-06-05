@@ -6,7 +6,7 @@
 
 ## Features
 
-1. AES-256 Encryption using the Fernet standard  
+1. AES-128 encryption using the Fernet standard
 2. File compression and chunking  
 3. QR code generation for each chunk  
 4. Camera-based scanning and file reconstruction  
@@ -19,7 +19,7 @@
 ### Sender Workflow:
 
 1. Select a file to send  
-2. Encrypt the file using a password (AES-256)  
+2. Encrypt the file using a password (AES-128 via Fernet)
 3. Compress and split the file into base64-encoded chunks  
 4. Generate a QR code for each chunk  
 5. Display the QR codes one by one or export as a slideshow  
