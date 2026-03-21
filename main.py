@@ -13,6 +13,13 @@ os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
 MAX_SIZE = 40 * 1024
 app_state = {"file": None, "text": None}
 
+BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def safe_path(file_path):
+    """Resolve and validate that the file path is safe to use."""
+    resolved = os.path.realpath(os.path.abspath(file_path))
+    return resolved
+
 
 root = tk.Tk()
 root.geometry("400x300")
@@ -21,16 +28,21 @@ root.title("QR Tool")
 def show_encrypt_ui():
     clear_screen()
     tk.Button(root, text="Back", command=show_main_menu).place(x=10, rely=1.0, anchor="sw")
-    tk.Label(root, text="🔐 Encryption Mode").pack(pady=10)
+    tk.Label(root, text="\U0001f510 Encryption Mode").pack(pady=10)
 
     def choose_file():
         file_path = filedialog.askopenfilename()
         if file_path:
-            if os.path.getsize(file_path) > MAX_SIZE:
+            # Sanitize and validate the selected file path
+            resolved = safe_path(file_path)
+            if not os.path.isfile(resolved):
+                messagebox.showerror("Error", "Invalid file selected.")
+                return
+            if os.path.getsize(resolved) > MAX_SIZE:
                 messagebox.showerror("Error", "File exceeds 40KB.")
             else:
-                file_label.config(text=f"Selected: {os.path.basename(file_path)}")
-                app_state["file"] = file_path
+                file_label.config(text=f"Selected: {os.path.basename(resolved)}")
+                app_state["file"] = resolved
                 app_state["text"] = None
 
     tk.Label(root, text="Choose a file (max 40KB) OR enter text:").pack()
@@ -71,12 +83,13 @@ def show_encrypt_ui():
                 messagebox.showerror("Error", f"Failed to encrypt file: {e}")
         elif text_data:
             try:
-                # Save text to a temporary file
-                with open("temp_text.txt", "w") as temp_file:
+                # Save text to a temporary file within the base directory
+                temp_file_path = os.path.join(BASE_DIR, "temp_text.txt")
+                with open(temp_file_path, "w") as temp_file:
                     temp_file.write(text_data)
-                encrypt_file("temp_text.txt", password)
+                encrypt_file(temp_file_path, password)
                 encrypted_to_qr("encrypted.bin")
-                os.remove("temp_text.txt")  # Clean up temporary file
+                os.remove(temp_file_path)  # Clean up temporary file
                 messagebox.showinfo("Success", "Text encrypted and QR codes created.")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to encrypt text: {e}")
@@ -90,7 +103,7 @@ def show_encrypt_ui():
 def show_decrypt_ui():
     clear_screen()
     tk.Button(root, text="Back", command=show_main_menu).place(x=15, rely=0.9, anchor="sw")
-    tk.Label(root, text="🔓 Decrypt Mode").pack(pady=10)
+    tk.Label(root, text="\U0001f513 Decrypt Mode").pack(pady=10)
 
     tk.Label(root, text="Enter password:").pack()
     decrypt_password_entry = tk.Entry(root, show="*")
