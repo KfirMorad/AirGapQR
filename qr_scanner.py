@@ -3,16 +3,17 @@ from pyzbar.pyzbar import decode
 import base64
 import re
 
-# Only allow characters valid in base64 (standard + URL-safe alphabets)
-_BASE64_RE = re.compile(r'^[A-Za-z0-9+/=_-]+$')
-_MAX_CHUNK_LENGTH = 4096  # generous upper bound for a single QR chunk
+# Only allow characters valid in standard base64 alphabet (no URL-safe, no shell-special chars)
+_BASE64_RE = re.compile(r'^[A-Za-z0-9+/=]+$')
+_MAX_CHUNK_LENGTH = 1200  # tightened: two QR chunks of 600 chars each is the expected max
+_MAX_CHUNKS = 512        # prevent unbounded memory accumulation
 
 
 def _validate_chunk(data: str) -> bool:
     """Return True only if the chunk looks like valid base64-encoded data."""
     if not data or len(data) > _MAX_CHUNK_LENGTH:
         return False
-    if not _BASE64_RE.match(data):
+    if not _BASE64_RE.fullmatch(data):  # fullmatch instead of match to cover entire string
         return False
     return True
 
@@ -32,6 +33,8 @@ def scan_qr_chunks():
         decoded_objects = decode(frame)
 
         for obj in decoded_objects:
+            # Only accept QR codes whose raw bytes are pure ASCII base64 characters.
+            # We do NOT follow, fetch, or execute any URL or command found in the data.
             try:
                 data = obj.data.decode("ascii", errors="strict")
             except (UnicodeDecodeError, ValueError):
@@ -41,6 +44,10 @@ def scan_qr_chunks():
             if not _validate_chunk(data):
                 print("⚠️  Skipping chunk that failed validation.")
                 continue
+
+            if len(chunks) >= _MAX_CHUNKS:
+                print("⚠️  Maximum chunk count reached; ignoring further QR codes.")
+                break
 
             if data not in seen:
                 print(f"🧩 New chunk captured ({len(chunks)})")
@@ -60,6 +67,7 @@ def scan_qr_chunks():
 def chunks_to_bytes(chunks: list) -> bytes:
     binary_data = b""
     for chunk in chunks:
+        # chunk has already been validated by _validate_chunk; decode it strictly.
         try:
             binary_data += base64.b64decode(chunk, validate=True)
         except Exception as e:
