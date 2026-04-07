@@ -11,12 +11,26 @@ os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
 
 
 MAX_SIZE = 40 * 1024
+_MIN_PASSWORD_LENGTH = 8
+_MAX_PASSWORD_LENGTH = 1024
 app_state = {"file": None, "text": None}
 
 
 root = tk.Tk()
 root.geometry("400x300")
 root.title("QR Tool")
+
+
+def _validate_password(password: str) -> str:
+    """Return an error message string if the password is invalid, else empty string."""
+    if not password:
+        return "Please enter a password."
+    if len(password) < _MIN_PASSWORD_LENGTH:
+        return f"Password must be at least {_MIN_PASSWORD_LENGTH} characters."
+    if len(password) > _MAX_PASSWORD_LENGTH:
+        return "Password is too long."
+    return ""
+
 
 def show_encrypt_ui():
     clear_screen()
@@ -26,11 +40,20 @@ def show_encrypt_ui():
     def choose_file():
         file_path = filedialog.askopenfilename()
         if file_path:
-            if os.path.getsize(file_path) > MAX_SIZE:
+            # Resolve the real path to prevent path-traversal tricks
+            real_path = os.path.realpath(file_path)
+            try:
+                size = os.path.getsize(real_path)
+            except OSError as e:
+                messagebox.showerror("Error", f"Cannot read file: {e}")
+                return
+            if size > MAX_SIZE:
                 messagebox.showerror("Error", "File exceeds 40KB.")
+            elif size == 0:
+                messagebox.showerror("Error", "File is empty.")
             else:
-                file_label.config(text=f"Selected: {os.path.basename(file_path)}")
-                app_state["file"] = file_path
+                file_label.config(text=f"Selected: {os.path.basename(real_path)}")
+                app_state["file"] = real_path
                 app_state["text"] = None
 
     tk.Label(root, text="Choose a file (max 40KB) OR enter text:").pack()
@@ -44,7 +67,7 @@ def show_encrypt_ui():
     text_entry.pack()
 
     tk.Label(root, text="Enter password:").pack()
-    password_entry = tk.Entry(root)
+    password_entry = tk.Entry(root, show="*")
     password_entry.pack()
 
     def start_encryption():
@@ -52,14 +75,20 @@ def show_encrypt_ui():
         password = password_entry.get()
         file_path = app_state.get("file")
 
-        # Check if password is missing
-        if not password:
-            messagebox.showerror("Error", "Please enter a password.")
+        # Validate password
+        pw_error = _validate_password(password)
+        if pw_error:
+            messagebox.showerror("Error", pw_error)
             return
 
         # Check if both are filled OR both are empty
         if (file_path and text_data) or (not file_path and not text_data):
             messagebox.showerror("Error", "Please provide either a file OR text (not both).")
+            return
+
+        # Validate text size if text path is chosen
+        if text_data and len(text_data.encode("utf-8")) > MAX_SIZE:
+            messagebox.showerror("Error", "Text exceeds 40KB.")
             return
 
         if file_path:
@@ -72,7 +101,7 @@ def show_encrypt_ui():
         elif text_data:
             try:
                 # Save text to a temporary file
-                with open("temp_text.txt", "w") as temp_file:
+                with open("temp_text.txt", "w", encoding="utf-8") as temp_file:
                     temp_file.write(text_data)
                 encrypt_file("temp_text.txt", password)
                 encrypted_to_qr("encrypted.bin")
@@ -81,10 +110,6 @@ def show_encrypt_ui():
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to encrypt text: {e}")
     tk.Button(root, text="Start Encryption", command=start_encryption).pack(pady=10)
-
-
-
-
 
 
 def show_decrypt_ui():
@@ -98,10 +123,10 @@ def show_decrypt_ui():
 
     def start_scanning():
         password = decrypt_password_entry.get()
-        if not password:
-            messagebox.showerror("Error", "Password is required.")
+        pw_error = _validate_password(password)
+        if pw_error:
+            messagebox.showerror("Error", pw_error)
             return
-        print("Ready to scan with password:", password)
         try:
             decrypt_file(scan_qr_chunks(), password)
             messagebox.showinfo("Success", "QR code scanned")
