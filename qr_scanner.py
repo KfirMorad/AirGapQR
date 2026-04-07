@@ -3,16 +3,23 @@ from pyzbar.pyzbar import decode
 import base64
 import re
 
-# Only allow characters valid in base64 (standard + URL-safe alphabets)
-_BASE64_RE = re.compile(r'^[A-Za-z0-9+/=_-]+$')
-_MAX_CHUNK_LENGTH = 4096  # generous upper bound for a single QR chunk
+# Only allow characters valid in standard base64 (no URL-safe variants to reduce attack surface)
+_BASE64_RE = re.compile(r'^[A-Za-z0-9+/=]+$')
+_MAX_CHUNK_LENGTH = 1200  # tightly bounded: chunk_size=600 base64-encodes to ~800 chars; 1200 is a safe ceiling
+_MAX_TOTAL_CHUNKS = 2048  # prevent unbounded memory growth during a scan session
 
 
 def _validate_chunk(data: str) -> bool:
-    """Return True only if the chunk looks like valid base64-encoded data."""
+    """Return True only if the chunk looks like valid base64-encoded data.
+
+    Rejects:
+    - empty strings
+    - strings exceeding the maximum expected chunk length
+    - strings containing characters outside the standard base64 alphabet
+    """
     if not data or len(data) > _MAX_CHUNK_LENGTH:
         return False
-    if not _BASE64_RE.match(data):
+    if not _BASE64_RE.fullmatch(data):
         return False
     return True
 
@@ -22,7 +29,7 @@ def scan_qr_chunks():
     seen = set()
     chunks = []
 
-    print("📷 Scanning... Press Q to quit.")
+    print("\U0001f4f7 Scanning... Press Q to quit.")
 
     while True:
         ret, frame = cap.read()
@@ -32,18 +39,28 @@ def scan_qr_chunks():
         decoded_objects = decode(frame)
 
         for obj in decoded_objects:
+            # Guard against excessively large raw payloads before decoding
+            if len(obj.data) > _MAX_CHUNK_LENGTH:
+                print("\u26a0\ufe0f  Skipping oversized chunk.")
+                continue
+
             try:
+                # Strict ASCII decode – any non-ASCII byte raises UnicodeDecodeError
                 data = obj.data.decode("ascii", errors="strict")
             except (UnicodeDecodeError, ValueError):
-                print("⚠️  Skipping chunk with non-ASCII data.")
+                print("\u26a0\ufe0f  Skipping chunk with non-ASCII data.")
                 continue
 
             if not _validate_chunk(data):
-                print("⚠️  Skipping chunk that failed validation.")
+                print("\u26a0\ufe0f  Skipping chunk that failed validation.")
                 continue
 
+            if len(chunks) >= _MAX_TOTAL_CHUNKS:
+                print("\u26a0\ufe0f  Maximum chunk count reached; ignoring further QR codes.")
+                break
+
             if data not in seen:
-                print(f"🧩 New chunk captured ({len(chunks)})")
+                print(f"\U0001f9e9 New chunk captured ({len(chunks)})")
                 seen.add(data)
                 chunks.append(data)
 
@@ -63,5 +80,5 @@ def chunks_to_bytes(chunks: list) -> bytes:
         try:
             binary_data += base64.b64decode(chunk, validate=True)
         except Exception as e:
-            print(f"⚠️  Skipping chunk that could not be base64-decoded: {e}")
+            print(f"\u26a0\ufe0f  Skipping chunk that could not be base64-decoded: {e}")
     return binary_data
